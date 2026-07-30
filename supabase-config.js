@@ -11,5 +11,5 @@
 // from: Supabase dashboard -> Project Settings -> API.
 // ==========================================================================
 
-window.SUPABASE_URL = https://hnbwikvuotgpnbdzvuyv.supabase.co;
-window.SUPABASE_ANON_KEY = sb_publishable_KPdTyMvz3FswPfziCiLvEA_ffTM_cg4;
+window.SUPABASE_URL = "https://hnbwikvuotgpnbdzvuyv.supabase.co";
+window.SUPABASE_ANON_KEY = "sb_publishable_KPdTyMvz3FswPfziCiLvEA_ffTM_cg4";
