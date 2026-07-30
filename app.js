@@ -1,15 +1,16 @@
+p · JS
 // ==========================================================================
 // Motos America Parts & Accessories Academy — Application logic
 // Single-page app: no build step, no framework. Renders into #app.
 // ==========================================================================
-
+ 
 (function () {
   'use strict';
-
+ 
   const DATA = window.ACADEMY_DATA;
   const STORE_OPTIONS = ['Cascade Moto Portland', 'Tampa Bay Motos', 'Triumph of Santa Monica', 'Triumph Columbia River', 'MA Corporate'];
   const CORPORATE_STORE = 'MA Corporate';
-
+ 
   // ---------- Supabase client ----------
   let supabase = null;
   const supabaseReady =
@@ -17,14 +18,14 @@
     window.SUPABASE_ANON_KEY &&
     !window.SUPABASE_URL.includes('YOUR_SUPABASE') &&
     !window.SUPABASE_ANON_KEY.includes('YOUR_SUPABASE');
-
+ 
   if (supabaseReady && window.supabase) {
     supabase = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
   }
-
+ 
   // ---------- Local session (who's logged in) ----------
-  const SESSION_KEY = 'moto_academy_session';
-
+  const SESSION_KEY = 'moto_academy_paa_session';
+ 
   function getSession() {
     try {
       const raw = localStorage.getItem(SESSION_KEY);
@@ -33,19 +34,19 @@
       return null;
     }
   }
-
+ 
   function setSession(trainee) {
     localStorage.setItem(SESSION_KEY, JSON.stringify(trainee));
   }
-
+ 
   function clearSession() {
     localStorage.removeItem(SESSION_KEY);
   }
-
+ 
   // ---------- Local progress cache (works even if Supabase is offline) ----------
   // Keyed by trainee id. Each entry: { [quizKey]: {scorePct, correct, total, completedAt} }
-  const PROGRESS_KEY = 'moto_academy_progress';
-
+  const PROGRESS_KEY = 'moto_academy_paa_progress';
+ 
   function getLocalProgress(traineeId) {
     try {
       const raw = localStorage.getItem(PROGRESS_KEY);
@@ -55,7 +56,7 @@
       return {};
     }
   }
-
+ 
   function saveLocalProgress(traineeId, quizKey, result) {
     try {
       const raw = localStorage.getItem(PROGRESS_KEY);
@@ -65,11 +66,11 @@
       localStorage.setItem(PROGRESS_KEY, JSON.stringify(all));
     } catch (e) { /* ignore quota errors */ }
   }
-
+ 
   // ---------- Pending sync queue (for flaky connections) ----------
   // If a Supabase write fails, we queue it here and retry on next load / action.
-  const QUEUE_KEY = 'moto_academy_pending_sync';
-
+  const QUEUE_KEY = 'moto_academy_paa_pending_sync';
+ 
   function getQueue() {
     try {
       const raw = localStorage.getItem(QUEUE_KEY);
@@ -78,17 +79,17 @@
       return [];
     }
   }
-
+ 
   function pushToQueue(item) {
     const q = getQueue();
     q.push(item);
     localStorage.setItem(QUEUE_KEY, JSON.stringify(q));
   }
-
+ 
   function setQueue(items) {
     localStorage.setItem(QUEUE_KEY, JSON.stringify(items));
   }
-
+ 
   async function flushQueue() {
     if (!supabase) return;
     let queue = getQueue();
@@ -107,20 +108,20 @@
     }
     setQueue(remaining);
   }
-
+ 
   // Try to flush whenever we come back online
   window.addEventListener('online', flushQueue);
-
+ 
   // ---------- Router ----------
   // Route shape: { view: 'toc' | 'module' | 'quiz' | 'exam' | 'report' | 'login', ...params }
   let currentRoute = { view: 'login' };
-
+ 
   function navigate(route) {
     currentRoute = route;
     render();
     window.scrollTo({ top: 0, behavior: 'instant' in window ? 'instant' : 'auto' });
   }
-
+ 
   // ---------- Utility ----------
   function el(tag, attrs, children) {
     const node = document.createElement(tag);
@@ -142,13 +143,13 @@
     });
     return node;
   }
-
+ 
   function escapeHtml(str) {
     const div = document.createElement('div');
     div.textContent = str;
     return div.innerHTML;
   }
-
+ 
   // Renders inline **bold** and *italic* markers from the source content into
   // <strong>/<em> tags safely (Parts Academy content uses italic quotes in
   // its Weak/Strong word tracks, which Service Academy's content didn't).
@@ -157,19 +158,19 @@
     const bolded = escaped.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
     return bolded.replace(/\*(.+?)\*/g, '<em>$1</em>');
   }
-
+ 
   function moduleByNum(num) {
     return DATA.modules.find((m) => m.num === num);
   }
-
+ 
   function quizKeyForModule(num) {
     return `module-${num}`;
   }
-
+ 
   function totalModuleCount() {
     return DATA.modules.length;
   }
-
+ 
   // Determines where "next" should go after a given module number, accounting
   // for Part boundaries: after the last module of a Part, "next" is that
   // Part's exam, not the next Part's Module 1. Returns a route object, a
@@ -178,12 +179,12 @@
   function getNextDestination(num) {
     const current = moduleByNum(num);
     if (!current) return null;
-
+ 
     const next = moduleByNum(num + 1);
     if (next && next.part === current.part) {
       return { route: { view: 'module', num: next.num }, label: 'Next Module \u2192' };
     }
-
+ 
     // Last module of this Part — route to that Part's exam instead.
     const examPart = current.part;
     return {
@@ -191,31 +192,31 @@
       label: examPart === 'I' ? 'Take the Part I Exam \u2192' : 'Take the Part II Exam \u2192',
     };
   }
-
+ 
   // ==========================================================================
   // VIEW: Login
   // ==========================================================================
-
+ 
   function renderLogin(root) {
     const shell = el('div', { class: 'login-shell' });
-
+ 
     const logoWrap = el('div', { class: 'login-shell__logo' }, [
       el('img', { src: 'MA_logo_white_header.png', alt: 'Motos America' }),
     ]);
     shell.appendChild(logoWrap);
-
+ 
     const card = el('div', { class: 'login-card' });
-
+ 
     card.appendChild(el('div', { class: 'login-card__sub' }, ['Parts & Accessories Academy']));
     card.appendChild(el('div', { class: 'login-card__tag' }, ['Live the passion. Take the ride.']));
-
+ 
     let errorBox = null;
-
+ 
     const nameField = el('div', { class: 'field' }, [
       el('label', {}, ['Your full name']),
       el('input', { type: 'text', id: 'login-name', autocomplete: 'name', placeholder: 'e.g. Jordan Reyes' }),
     ]);
-
+ 
     const storeSelect = el('select', { id: 'login-store' }, [
       el('option', { value: '' }, ['Select your store...']),
       ...STORE_OPTIONS.map((s) => el('option', { value: s }, [s])),
@@ -224,7 +225,7 @@
       el('label', {}, ['Your store']),
       storeSelect,
     ]);
-
+ 
     const roleSelect = el('select', { id: 'login-role' }, [
       el('option', { value: 'parts_associate' }, ['Parts Associate']),
       el('option', { value: 'manager' }, ['Manager']),
@@ -233,7 +234,7 @@
       el('label', {}, ['Your role']),
       roleSelect,
     ]);
-
+ 
     // MA Corporate is Manager-only: lock the role dropdown to Manager and
     // disable it the moment that store is picked, so it's not even possible
     // to select something else in the UI.
@@ -245,18 +246,18 @@
         roleSelect.disabled = false;
       }
     });
-
+ 
     const submitBtn = el('button', { class: 'btn btn--primary' }, ['Enter the Academy']);
-
+ 
     const form = el('div', {}, [nameField, storeField, roleField, submitBtn]);
-
+ 
     async function handleSubmit() {
       const name = document.getElementById('login-name').value.trim();
       const store = document.getElementById('login-store').value;
       let role = document.getElementById('login-role').value;
-
+ 
       if (errorBox) { errorBox.remove(); errorBox = null; }
-
+ 
       if (!name || name.length < 2) {
         errorBox = el('div', { class: 'login-error' }, ['Please enter your full name.']);
         form.insertBefore(errorBox, form.firstChild);
@@ -272,37 +273,37 @@
       if (store === CORPORATE_STORE) {
         role = 'manager';
       }
-
+ 
       submitBtn.disabled = true;
       submitBtn.textContent = 'Signing you in...';
-
+ 
       const trainee = await findOrCreateTrainee(name, store, role);
-
+ 
       setSession(trainee);
       navigate({ view: 'toc' });
     }
-
+ 
     submitBtn.addEventListener('click', handleSubmit);
     [nameField, storeField].forEach((f) => {
       f.querySelector('input,select').addEventListener('keydown', (e) => {
         if (e.key === 'Enter') handleSubmit();
       });
     });
-
+ 
     card.appendChild(form);
     shell.appendChild(card);
     root.appendChild(shell);
   }
-
+ 
   // Looks up a trainee by name+store, or creates a new record. Falls back to a
   // local-only id if Supabase isn't configured or the network call fails, so
   // the app still works offline / before setup is complete.
   async function findOrCreateTrainee(name, store, role) {
     const localId = 'local-' + name.toLowerCase().replace(/\s+/g, '-') + '-' + store.toLowerCase().replace(/\s+/g, '-');
     const fallback = { id: localId, full_name: name, store, role, _local: true };
-
+ 
     if (!supabase) return fallback;
-
+ 
     try {
       const { data: existing, error: findErr } = await supabase
         .from('trainees')
@@ -310,19 +311,19 @@
         .eq('full_name', name)
         .eq('store', store)
         .limit(1);
-
+ 
       if (findErr) throw findErr;
-
+ 
       if (existing && existing.length) {
         return existing[0];
       }
-
+ 
       const { data: created, error: createErr } = await supabase
         .from('trainees')
         .insert({ full_name: name, store, role })
         .select()
         .single();
-
+ 
       if (createErr) throw createErr;
       return created;
     } catch (e) {
@@ -332,14 +333,14 @@
       return fallback;
     }
   }
-
+ 
   // ==========================================================================
   // Shared: top bar
   // ==========================================================================
-
+ 
   function renderTopbar(root, trainee) {
     const bar = el('div', { class: 'topbar' });
-
+ 
     const brand = el('div', { class: 'topbar__brand', onclick: () => navigate({ view: 'toc' }) }, [
       el('img', {
         src: 'MA_logo_white_header.png',
@@ -348,16 +349,16 @@
       }),
       el('div', { class: 'topbar__brand-sub' }, ['Parts & Accessories Academy']),
     ]);
-
+ 
     const menuBtn = el('button', { class: 'topbar__link topbar__menu-btn' }, ['\u2630 Modules']);
     const menuPanel = buildModuleMenuPanel();
     let menuOpen = false;
-
+ 
     function toggleMenu(force) {
       menuOpen = typeof force === 'boolean' ? force : !menuOpen;
       menuPanel.classList.toggle('module-menu--open', menuOpen);
     }
-
+ 
     menuBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       toggleMenu();
@@ -372,40 +373,40 @@
         toggleMenu(false);
       }
     });
-
+ 
     const right = el('div', { class: 'topbar__right' });
     right.appendChild(el('span', { class: 'topbar__user' }, [`${trainee.full_name} · ${trainee.store}`]));
     right.appendChild(menuBtn);
-
+ 
     if (trainee.role === 'manager' || trainee.role === 'admin') {
       right.appendChild(el('button', { class: 'topbar__link', onclick: () => navigate({ view: 'report' }) }, ['Report']));
     }
     right.appendChild(el('button', { class: 'topbar__link', onclick: () => { clearSession(); navigate({ view: 'login' }); } }, ['Sign out']));
-
+ 
     bar.appendChild(brand);
     bar.appendChild(right);
     bar.appendChild(menuPanel);
     root.appendChild(bar);
   }
-
+ 
   // Dropdown panel listing every module (grouped by Part) plus both exams,
   // so a trainee can jump directly to any module from anywhere on the site —
   // e.g. to revisit one or look something up — without going back to the
   // dashboard first.
   function buildModuleMenuPanel() {
     const panel = el('div', { class: 'module-menu' });
-
+ 
     function goTo(route) {
       panel.classList.remove('module-menu--open');
       navigate(route);
     }
-
+ 
     const closeBtn = el('button', {
       class: 'module-menu__close',
       onclick: () => panel.classList.remove('module-menu--open'),
     }, ['\u2715 Close']);
     panel.appendChild(closeBtn);
-
+ 
     function buildGroup(label, mods) {
       const group = el('div', { class: 'module-menu__group' });
       group.appendChild(el('div', { class: 'module-menu__group-label' }, [label]));
@@ -419,10 +420,10 @@
       });
       return group;
     }
-
+ 
     const partI = DATA.modules.filter((m) => m.part === 'I');
     const partII = DATA.modules.filter((m) => m.part === 'II');
-
+ 
     panel.appendChild(buildGroup('Part I \u2014 The Service Team', partI));
     panel.appendChild(
       el('button', { class: 'module-menu__item module-menu__item--exam', onclick: () => goTo({ view: 'exam', part: 'I' }) }, ['Part I Exam'])
@@ -431,31 +432,31 @@
     panel.appendChild(
       el('button', { class: 'module-menu__item module-menu__item--exam', onclick: () => goTo({ view: 'exam', part: 'II' }) }, ['Part II Exam'])
     );
-
+ 
     return panel;
   }
-
+ 
   // ==========================================================================
   // VIEW: Table of Contents / Dashboard
   // ==========================================================================
-
+ 
   async function renderTOC(root, trainee) {
     renderTopbar(root, trainee);
     const page = el('div', { class: 'page' });
     page.appendChild(el('div', { class: 'loading' }, [el('div', { class: 'spinner' }), 'Loading your progress...']));
     root.appendChild(page);
-
+ 
     const progress = await fetchProgress(trainee.id);
-
+ 
     page.innerHTML = '';
-
+ 
     const partI = DATA.modules.filter((m) => m.part === 'I');
     const partII = DATA.modules.filter((m) => m.part === 'II');
-
+ 
     const doneCount = DATA.modules.filter((m) => isPassed(progress[quizKeyForModule(m.num)])).length;
     const exam1Done = !!progress['part1-exam'];
     const exam2Done = !!progress['part2-exam'];
-
+ 
     const hero = el('div', { class: 'hero' }, [
       el('div', { class: 'hero__eyebrow' }, ['Welcome back']),
       el('div', { class: 'hero__title' }, [trainee.full_name.split(' ')[0] + ', here\u2019s your training']),
@@ -467,14 +468,14 @@
       ]),
     ]);
     page.appendChild(hero);
-
+ 
     function buildPartSection(label, title, mods, examKey, examTitle, examQuestions) {
       const section = el('div', { class: 'part-section' });
       section.appendChild(el('div', { class: 'part-section__header' }, [
         el('span', { class: 'part-section__label' }, [`Part ${label}`]),
         el('span', { class: 'part-section__title' }, [title]),
       ]));
-
+ 
       const list = el('div', { class: 'module-list' });
       mods.forEach((m) => {
         const key = quizKeyForModule(m.num);
@@ -501,7 +502,7 @@
         list.appendChild(card);
       });
       section.appendChild(list);
-
+ 
       const allModsDone = mods.every((m) => isPassed(progress[quizKeyForModule(m.num)]));
       const examResult = progress[examKey];
       const examCard = el('div', { class: 'exam-card' }, [
@@ -520,36 +521,36 @@
         }, [examResult ? 'Retake Exam' : 'Start Exam']),
       ]);
       section.appendChild(examCard);
-
+ 
       return section;
     }
-
+ 
     page.appendChild(buildPartSection('I', 'The Service Team', partI, 'part1-exam', 'Part I Exam \u2014 The Service Team', DATA.part1Exam));
     page.appendChild(buildPartSection('II', 'The Elite Advisor', partII, 'part2-exam', 'Part II Exam \u2014 The Elite Advisor', DATA.part2Exam));
   }
-
+ 
   // A module review only counts as "passed" at a perfect score. Part exams
   // don't use this — any completed attempt counts, since they aren't gated.
   function isPassed(result) {
     return !!result && result.correct === result.total;
   }
-
+ 
   // Fetches all quiz results for a trainee, merging Supabase (if available)
   // with anything cached locally (so results still show up if the network
   // request fails, e.g. flaky wifi on the showroom floor).
   async function fetchProgress(traineeId) {
     const local = getLocalProgress(traineeId);
     if (!supabase || traineeId.startsWith('local-')) return local;
-
+ 
     try {
       const { data, error } = await supabase
         .from('quiz_attempts')
         .select('*')
         .eq('trainee_id', traineeId)
         .order('completed_at', { ascending: true });
-
+ 
       if (error) throw error;
-
+ 
       const merged = { ...local };
       (data || []).forEach((row) => {
         merged[row.quiz_key] = {
@@ -564,11 +565,11 @@
       return local;
     }
   }
-
+ 
   // ==========================================================================
   // VIEW: Module reader
   // ==========================================================================
-
+ 
   function renderBlockToNode(b) {
     switch (b.type) {
       case 'part':
@@ -597,31 +598,31 @@
         return null;
     }
   }
-
+ 
   function renderModule(root, trainee, num) {
     renderTopbar(root, trainee);
-
+ 
     const m = moduleByNum(num);
     const videoId = window.MODULE_VIDEOS && window.MODULE_VIDEOS[num];
-
+ 
     if (!m) {
       const page = el('div', { class: 'page' });
       page.appendChild(el('div', { class: 'empty-state' }, ['Module not found.']));
       root.appendChild(page);
       return;
     }
-
+ 
     // Wider container when a video is present, so the split-screen has room
     // to breathe on desktop; same comfortable reading width otherwise.
     const page = el('div', { class: videoId ? 'page page--wide' : 'page' });
-
+ 
     const crumbs = el('div', { class: 'crumbs' }, [
       el('button', { onclick: () => navigate({ view: 'toc' }) }, ['Contents']),
       el('span', {}, ['/']),
       el('span', {}, [`Module ${String(m.num).padStart(2, '0')}`]),
     ]);
     page.appendChild(crumbs);
-
+ 
     const header = el('div', {}, [
       el('div', { class: 'module-header__eyebrow' }, [`Module ${String(m.num).padStart(2, '0')}`]),
       el('div', { class: 'module-header__title' }, [m.title]),
@@ -630,13 +631,13 @@
       header.appendChild(el('div', { class: 'module-header__tagline' }, [m.tagline]));
     }
     page.appendChild(header);
-
+ 
     const body = el('div', { class: 'module-body' });
     m.blocks.forEach((b) => {
       const node = renderBlockToNode(b);
       if (node) body.appendChild(node);
     });
-
+ 
     if (videoId) {
       // Split-screen: video pinned alongside the text on desktop, stacked
       // above it on narrow screens (handled in CSS, not here).
@@ -657,11 +658,11 @@
     } else {
       page.appendChild(body);
     }
-
+ 
     const nav = el('div', { class: 'module-nav' });
     const prevModule = moduleByNum(num - 1);
     const nextDest = getNextDestination(num);
-
+ 
     nav.appendChild(
       prevModule
         ? el('button', { class: 'btn btn--ghost', onclick: () => navigate({ view: 'module', num: prevModule.num }) }, ['\u2190 Previous Module'])
@@ -671,7 +672,7 @@
       el('button', { class: 'btn btn--primary', onclick: () => navigate({ view: 'quiz', num: m.num }) }, ['Take the Module Review \u2192'])
     );
     page.appendChild(nav);
-
+ 
     if (nextDest) {
       const skipLabel = nextDest.route.view === 'exam'
         ? (nextDest.route.part === 'I' ? 'Skip to Part I Exam \u2192' : 'Skip to Part II Exam \u2192')
@@ -680,24 +681,24 @@
       nextRow.appendChild(el('button', { class: 'btn btn--ghost', onclick: () => navigate(nextDest.route) }, [skipLabel]));
       page.appendChild(nextRow);
     }
-
+ 
     root.appendChild(page);
   }
-
-
+ 
+ 
   // ==========================================================================
   // VIEW: Quiz (module review, 5 questions) and Exam (Part review, 20 questions)
   // ==========================================================================
-
+ 
   const LETTERS = ['A', 'B', 'C', 'D'];
-
+ 
   function renderQuizOrExam(root, trainee, opts) {
     // opts: { mode: 'quiz', num } or { mode: 'exam', part: 'I'|'II' }
     renderTopbar(root, trainee);
     const page = el('div', { class: 'page' });
-
+ 
     let questions, quizKey, quizLabel, backRoute, eyebrow, title, desc;
-
+ 
     if (opts.mode === 'quiz') {
       const m = moduleByNum(opts.num);
       questions = DATA.moduleQuizzes[String(opts.num)];
@@ -717,38 +718,38 @@
       title = isOne ? 'The Service Team' : 'The Elite Advisor';
       desc = '20 questions covering everything in this Part.';
     }
-
+ 
     const state = { answers: new Array(questions.length).fill(null), submitted: false };
-
+ 
     const header = el('div', { class: 'quiz-header' }, [
       el('div', { class: 'quiz-header__eyebrow' }, [eyebrow]),
       el('div', { class: 'quiz-header__title' }, [title]),
       el('div', { class: 'quiz-header__desc' }, [desc]),
     ]);
     page.appendChild(header);
-
+ 
     const progressBar = el('div', { class: 'quiz-progress' }, [el('div', { class: 'quiz-progress__bar', style: 'width:0%' })]);
     page.appendChild(progressBar);
-
+ 
     const questionsWrap = el('div', {});
     page.appendChild(questionsWrap);
-
+ 
     function updateProgress() {
       const answered = state.answers.filter((a) => a !== null).length;
       const pct = Math.round((answered / questions.length) * 100);
       progressBar.querySelector('.quiz-progress__bar').style.width = pct + '%';
     }
-
+ 
     function renderQuestions() {
       questionsWrap.innerHTML = '';
       questions.forEach((q, qIdx) => {
         const card = el('div', { class: 'question-card' });
         card.appendChild(el('div', { class: 'question-card__num' }, [`Question ${qIdx + 1} of ${questions.length}`]));
         card.appendChild(el('div', { class: 'question-card__text', html: renderInline(q.q) }));
-
+ 
         const list = el('div', { class: 'option-list' });
         const optionNodes = [];
-
+ 
         function classesFor(oIdx) {
           const isSelected = state.answers[qIdx] === oIdx;
           const isCorrectAnswer = oIdx === q.answer;
@@ -761,13 +762,13 @@
           }
           return cls;
         }
-
+ 
         q.options.forEach((opt, oIdx) => {
           const optionNode = el('label', { class: classesFor(oIdx) }, [
             el('span', { class: 'option__letter' }, [LETTERS[oIdx]]),
             el('span', { html: renderInline(opt) }),
           ]);
-
+ 
           if (!state.submitted) {
             optionNode.addEventListener('click', () => {
               state.answers[qIdx] = oIdx;
@@ -786,9 +787,9 @@
       });
       updateProgress();
     }
-
+ 
     renderQuestions();
-
+ 
     const actions = el('div', { class: 'quiz-actions' });
     const submitBtn = el('button', { class: 'btn btn--primary' }, ['Submit Answers']);
     submitBtn.addEventListener('click', async () => {
@@ -800,7 +801,7 @@
       }
       submitBtn.disabled = true;
       submitBtn.textContent = 'Scoring...';
-
+ 
       state.submitted = true;
       const correct = questions.reduce((sum, q, i) => sum + (state.answers[i] === q.answer ? 1 : 0), 0);
       const result = {
@@ -809,11 +810,11 @@
         scorePct: Math.round((correct / questions.length) * 1000) / 10,
         completedAt: new Date().toISOString(),
       };
-
+ 
       const savedResult = saveLocalProgress(trainee.id, quizKey, result);
       const attemptNumber = savedResult ? savedResult.attempts : 1;
       await recordAttempt(trainee, quizKey, quizLabel, questions, state.answers, result, attemptNumber);
-
+ 
       if (opts.mode === 'quiz') {
         renderModuleQuizResult(root, trainee, { result, attemptNumber, backRoute, opts });
       } else {
@@ -822,10 +823,10 @@
     });
     actions.appendChild(submitBtn);
     page.appendChild(actions);
-
+ 
     root.appendChild(page);
   }
-
+ 
   async function recordAttempt(trainee, quizKey, quizLabel, questions, answers, result, attemptNumber) {
     const payload = {
       trainee_id: trainee.id,
@@ -838,12 +839,12 @@
       attempt_number: attemptNumber || 1,
       completed_at: result.completedAt,
     };
-
+ 
     if (!supabase || trainee._local) {
       pushToQueue({ type: 'attempt', payload });
       return;
     }
-
+ 
     try {
       const { error } = await supabase.from('quiz_attempts').insert(payload);
       if (error) throw error;
@@ -853,7 +854,7 @@
       pushToQueue({ type: 'attempt', payload });
     }
   }
-
+ 
   // Module review result screen: mastery-gated. A perfect score is required
   // to move on; anything else withholds which answers were right/wrong and
   // sends the trainee back to re-read the module before they can retry —
@@ -862,14 +863,14 @@
     root.innerHTML = '';
     renderTopbar(root, trainee);
     const page = el('div', { class: 'page' });
-
+ 
     const { result, attemptNumber, backRoute, opts } = ctx;
     const passed = result.correct === result.total;
-
+ 
     const card = el('div', { class: 'result-card' });
     card.appendChild(el('div', { class: 'result-card__score' + (passed ? '' : ' result-card__score--fail') }, [`${result.correct}/${result.total}`]));
     card.appendChild(el('div', { class: 'result-card__label' }, [passed ? 'Passed' : `Not Yet \u00b7 Attempt ${attemptNumber}`]));
-
+ 
     if (passed) {
       card.appendChild(el('div', { class: 'result-card__msg' }, [
         'Nice work \u2014 perfect score. This module is locked in.',
@@ -890,19 +891,19 @@
       actions.appendChild(el('button', { class: 'btn btn--primary', onclick: () => navigate({ view: 'module', num: opts.num }) }, ['Review the Module \u2192']));
       card.appendChild(actions);
     }
-
+ 
     page.appendChild(card);
     root.appendChild(page);
   }
-
+ 
   function renderQuizResults(root, trainee, ctx) {
     root.innerHTML = '';
     renderTopbar(root, trainee);
     const page = el('div', { class: 'page' });
-
+ 
     const { questions, answers, result, backRoute } = ctx;
     const passed = result.scorePct >= 70;
-
+ 
     const card = el('div', { class: 'result-card' });
     card.appendChild(el('div', { class: 'result-card__score' + (passed ? '' : ' result-card__score--fail') }, [`${result.correct}/${result.total}`]));
     card.appendChild(el('div', { class: 'result-card__label' }, [`${result.scorePct}% Score`]));
@@ -911,7 +912,7 @@
         ? 'Nice work \u2014 that\u2019s a passing score. Review any missed questions below.'
         : 'Take another look at the module, then feel free to retake this review.',
     ]));
-
+ 
     const review = el('div', { class: 'result-review' });
     questions.forEach((q, i) => {
       const userAnswer = answers[i];
@@ -928,63 +929,63 @@
       review.appendChild(item);
     });
     card.appendChild(review);
-
+ 
     const actions = el('div', { class: 'quiz-actions' });
     actions.appendChild(el('button', { class: 'btn btn--ghost', onclick: () => navigate(backRoute) }, ['Back']));
     actions.appendChild(el('button', { class: 'btn btn--primary', onclick: () => navigate({ view: 'toc' }) }, ['Contents']));
     card.appendChild(actions);
-
+ 
     page.appendChild(card);
     root.appendChild(page);
   }
-
-
+ 
+ 
   // ==========================================================================
   // VIEW: Report (manager / admin) — who's registered, who's completed what
   // ==========================================================================
-
+ 
   async function renderReport(root, trainee) {
     renderTopbar(root, trainee);
     const page = el('div', { class: 'page page--wide' });
-
+ 
     if (trainee.role !== 'manager' && trainee.role !== 'admin') {
       page.appendChild(el('div', { class: 'empty-state' }, ['This report is only available to managers.']));
       root.appendChild(page);
       return;
     }
-
+ 
     page.appendChild(el('div', { class: 'hero__eyebrow' }, ['Manager view']));
     page.appendChild(el('div', { class: 'hero__title' }, ['Training Report']));
-
+ 
     // MA Corporate managers oversee every dealership, so their report always
     // shows all stores by default (with the option to still filter down).
     // Store-based managers also start on "All stores" but this comment exists
     // so a future edit doesn't accidentally scope MA Corporate down to just
     // its own "store" — that would hide every dealership's data from them.
     const isCorporateManager = trainee.store === CORPORATE_STORE;
-
+ 
     if (!supabase) {
       page.appendChild(el('div', { class: 'banner banner--warn' }, [
         'Supabase isn\u2019t configured yet, so this report only shows results saved on this device. Once Supabase is connected, this will show every trainee across every device.',
       ]));
     }
-
+ 
     if (isCorporateManager) {
       page.appendChild(el('div', { class: 'banner banner--info' }, [
         'You\u2019re viewing results from every store \u2014 MA Corporate managers see the full company-wide picture by default. Use the store filter below to narrow to one dealership.',
       ]));
     }
-
+ 
     const loadingEl = el('div', { class: 'loading' }, [el('div', { class: 'spinner' }), 'Loading report...']);
     page.appendChild(loadingEl);
     root.appendChild(page);
-
+ 
     const { trainees, attempts } = await fetchAllReportData(trainee.store);
-
+ 
     loadingEl.remove();
-
+ 
     const totalQuizzes = totalModuleCount() + 2; // 21 modules + 2 exams
-
+ 
     // Summary cards
     const completedAll = trainees.filter((t) => {
       const theirAttempts = attempts.filter((a) => a.trainee_id === t.id);
@@ -997,14 +998,14 @@
       const hasExam2 = theirAttempts.some((a) => a.quiz_key === 'part2-exam');
       return passedModules === totalModuleCount() && hasExam1 && hasExam2;
     }).length;
-
+ 
     const summary = el('div', { class: 'report-summary-cards' }, [
       el('div', { class: 'summary-card' }, [el('div', { class: 'summary-card__num' }, [String(trainees.length)]), el('div', { class: 'summary-card__label' }, ['Registered'])]),
       el('div', { class: 'summary-card' }, [el('div', { class: 'summary-card__num' }, [String(completedAll)]), el('div', { class: 'summary-card__label' }, ['Fully Completed'])]),
       el('div', { class: 'summary-card' }, [el('div', { class: 'summary-card__num' }, [String(attempts.length)]), el('div', { class: 'summary-card__label' }, ['Total Attempts'])]),
     ]);
     page.appendChild(summary);
-
+ 
     // Controls
     const search = el('input', { type: 'text', placeholder: 'Search by name...' });
     const storeFilter = el('select', {}, [
@@ -1013,30 +1014,30 @@
     ]);
     const controls = el('div', { class: 'report-controls' }, [search, storeFilter]);
     page.appendChild(controls);
-
+ 
     const tableWrap = el('div', { class: 'report-table-wrap' });
     page.appendChild(tableWrap);
-
+ 
     function buildTable() {
       const q = search.value.trim().toLowerCase();
       const storeQ = storeFilter.value;
-
+ 
       const rows = trainees
         .filter((t) => (!q || t.full_name.toLowerCase().includes(q)) && (!storeQ || t.store === storeQ))
         .map((t) => {
           const theirAttempts = attempts.filter((a) => a.trainee_id === t.id);
           const moduleAttempts = theirAttempts.filter((a) => a.quiz_key.startsWith('module-'));
-
+ 
           // A module only counts as passed once a perfect-score attempt exists for it.
           const passedModuleKeys = new Set(
             moduleAttempts.filter((a) => a.correct_answers === a.total_questions).map((a) => a.quiz_key)
           );
           const modulesPassed = passedModuleKeys.size;
-
+ 
           // Total tries across all modules (attempted, not just passed) — a rough
           // "how much retrying is this person doing overall" signal.
           const totalModuleAttempts = moduleAttempts.length;
-
+ 
           // Highest attempt count needed to pass any single module, e.g. "took 4
           // tries on their hardest module" — surfaces who's struggling, not just who's slow.
           let maxAttemptsToPass = 0;
@@ -1046,7 +1047,7 @@
             const triesNeeded = passingAttempt ? passingAttempt.attempt_number : 1;
             if (triesNeeded > maxAttemptsToPass) maxAttemptsToPass = triesNeeded;
           });
-
+ 
           const exam1 = theirAttempts.find((a) => a.quiz_key === 'part1-exam');
           const exam2 = theirAttempts.find((a) => a.quiz_key === 'part2-exam');
           const avgScore = theirAttempts.length
@@ -1055,16 +1056,16 @@
           const lastActive = theirAttempts.length
             ? theirAttempts.reduce((latest, a) => (a.completed_at > latest ? a.completed_at : latest), theirAttempts[0].completed_at)
             : null;
-
+ 
           return { t, modulesPassed, totalModuleAttempts, maxAttemptsToPass, exam1, exam2, avgScore, lastActive };
         });
-
+ 
       tableWrap.innerHTML = '';
       if (!rows.length) {
         tableWrap.appendChild(el('div', { class: 'empty-state' }, ['No trainees match this filter yet.']));
         return;
       }
-
+ 
       const table = el('table', { class: 'report-table' });
       const thead = el('thead', {}, [
         el('tr', {}, [
@@ -1081,7 +1082,7 @@
         ]),
       ]);
       table.appendChild(thead);
-
+ 
       const tbody = el('tbody', {});
       rows.forEach(({ t, modulesPassed, totalModuleAttempts, maxAttemptsToPass, exam1, exam2, avgScore, lastActive }) => {
         tbody.appendChild(el('tr', {}, [
@@ -1100,12 +1101,12 @@
       table.appendChild(tbody);
       tableWrap.appendChild(table);
     }
-
+ 
     buildTable();
     search.addEventListener('input', buildTable);
     storeFilter.addEventListener('change', buildTable);
   }
-
+ 
   async function fetchAllReportData(managerStore) {
     if (!supabase) {
       return { trainees: [], attempts: [] };
@@ -1120,21 +1121,21 @@
       return { trainees: [], attempts: [] };
     }
   }
-
+ 
   // ==========================================================================
   // Main render dispatcher
   // ==========================================================================
-
+ 
   function render() {
     const root = document.getElementById('app');
     root.innerHTML = '';
-
+ 
     const trainee = getSession();
-
+ 
     if (!trainee && currentRoute.view !== 'login') {
       currentRoute = { view: 'login' };
     }
-
+ 
     switch (currentRoute.view) {
       case 'login':
         renderLogin(root);
@@ -1158,11 +1159,11 @@
         renderLogin(root);
     }
   }
-
+ 
   // ==========================================================================
   // Init
   // ==========================================================================
-
+ 
   document.addEventListener('DOMContentLoaded', () => {
     const existing = getSession();
     currentRoute = existing ? { view: 'toc' } : { view: 'login' };
