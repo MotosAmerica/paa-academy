@@ -1,15 +1,12 @@
 // ==========================================================================
 // Supabase connection settings for the Motos America Parts & Accessories Academy.
 //
-//
-// This "publishable" key is SAFE to have in a public repo — it only allows
-// the specific actions enabled via Row Level Security in schema.sql. It is
-// NOT the same as the "service_role" secret key, which must never appear
-// in any website code.
-//
-// If this project is ever replaced or recreated, update these two values
-// from: Supabase dashboard -> Project Settings -> API.
+// This site now shares the SAME Supabase project as every other MAU
+// academy (the Sales Academy project) — data is kept separate by the
+// `academy` field on each row, not by having its own project anymore.
+// The old Parts & Accessories project (hnbwikvuotgpnbdzvuyv) can be
+// deleted once this is confirmed working.
 // ==========================================================================
 
-window.SUPABASE_URL = "https://hnbwikvuotgpnbdzvuyv.supabase.co";
-window.SUPABASE_ANON_KEY = "sb_publishable_KPdTyMvz3FswPfziCiLvEA_ffTM_cg4";
+window.SUPABASE_URL = "https://kairsmnztbvcxacdsizi.supabase.co";
+window.SUPABASE_ANON_KEY = "sb_publishable_CGaP9H7wB7cQ_gCmEp3AHA_JJOGrNwQ";
