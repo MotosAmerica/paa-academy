@@ -17,47 +17,38 @@ Part exam score.
 | `styles.css` | All visual design (shared Motos America Academy design system) |
 | `content-data.js` | All 19 modules + every quiz question, generated from the locked manual |
 | `app.js` | All app logic — login, navigation, quiz scoring, Supabase calls |
-| `supabase-config.js` | **You fill this in** — your Supabase project keys |
-| `schema.sql` | Run this once in Supabase to create the database tables |
+| `supabase-config.js` | Already filled in — points at the shared MAU Supabase project |
+| `schema.sql` | Reference only. The tables already exist in the shared project; you don't need to run this here. |
 
 ## One-time setup (do this before sharing the link with your team)
 
-### 1. Create a free Supabase project
-- Go to [supabase.com](https://supabase.com) and sign up (free tier is plenty for ~50 users)
-- Create a new project. Pick any name/region/password (save the password somewhere, but you won't need it day-to-day)
-- Wait ~2 minutes for the project to finish provisioning
-- **This should be a separate Supabase project from the Sales, Service, and Passport Academy sites** — keeps each academy's trainee data cleanly apart, with no risk of one academy's schema changes affecting another.
+### Database — nothing to do here
+This site shares the **same Supabase project as every other MAU academy**
+(Sales, Service Advisor, etc.) rather than having one of its own. The
+tables already exist, and `supabase-config.js` is already pointed at it —
+there's no project to create and no `schema.sql` to run.
 
-### 2. Create the database tables
-- In your Supabase project, open the **SQL Editor** (left sidebar)
-- Open `schema.sql` from this repo, copy all of it, paste it into the SQL Editor, and click **Run**
-- You should see "Success. No rows returned" — that means the two tables (`trainees` and `quiz_attempts`) were created
+Data stays cleanly separated: every row this site writes is tagged
+`academy: 'parts_accessories'`, so it never mixes with Sales or Service
+data even though they all live in the same database. `schema.sql` is kept
+in this repo purely as a reference for what the shared tables look like.
 
-**Before running it:** the store list matches the other academy sites' five stores, including **MA Corporate** (a manager-only "store" for corporate staff, not a physical dealership):
-```sql
-store text not null check (store in ('Cascade Moto Portland', 'Tampa Bay Motos', 'Triumph of Santa Monica', 'Triumph Columbia River', 'MA Corporate')),
-```
-If you ever add, remove, or rename a store, update this line in `schema.sql` (re-run it in Supabase's SQL Editor) **and** the matching `STORE_OPTIONS` list near the top of `app.js` — they must match exactly, or the login dropdown and the database rule will disagree.
+If you ever need the connection details again, they live in the **Sales
+Academy** Supabase project (`kairsmnztbvcxacdsizi`), not a project of this
+site's own — Project Settings → API in that project.
 
-Roles for this academy are **Parts Associate** and **Manager** (an `admin` role also exists in the database for anyone who needs full access without being tied to a specific store's manager view — that role isn't in the login dropdown; create it directly in Supabase's Table Editor if needed).
+Roles for this academy are **Parts Associate** and **Manager** (an `admin`
+role also exists in the database for anyone who needs full access without
+being tied to a specific store's manager view — that role isn't in the
+login dropdown; create it directly in Supabase's Table Editor if needed).
 
-### 3. Connect the site to your Supabase project
-- In Supabase, go to **Project Settings → API**
-- Copy the **Project URL**
-- Copy the **anon public** key (NOT the `service_role` key — that one must stay secret)
-- Open `supabase-config.js` in this repo and paste them in:
-```js
-window.SUPABASE_URL = "https://your-project-ref.supabase.co";
-window.SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIs...(long string)...";
-```
-
-### 4. Turn on GitHub Pages
+### 1. Turn on GitHub Pages
 - In this repo on GitHub: **Settings → Pages**
 - Under "Source," choose **Deploy from a branch**
 - Branch: `main`, folder: `/ (root)`
 - Save. GitHub will give you a URL like `https://motosamerica.github.io/parts-accessories-academy/` within a minute or two
 
-### 5. Give yourself manager access
+### 2. Give yourself manager access
 - Log into the site once using your name, your store, and select **Manager** as the role
 - Managers see an extra "Report" button in the top bar showing every trainee's progress
 
